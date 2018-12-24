@@ -1,5 +1,7 @@
 package zuo.biao.apijson.parser;
 
+import java.util.Set;
+
 import com.alibaba.fastjson.JSONObject;
 
 /**
@@ -12,11 +14,11 @@ public class App
     {
     	long st = System.currentTimeMillis();
 		String json = "{\r\n" + 
-				"	\"Retail\": {\r\n" + 
-				"		\"description\": \"20190101,元旦快乐\",\r\n" + 
-				"		\"INVOICE_ADDRESS\": 13,\r\n" + 
-				"		\"docno\": \"RE1807250000002\"\r\n" + 
-				"	}\r\n" + 
+				"  \"Retail\":{\r\n" + 
+				"    \"id\": 1,\r\n" + 
+				"    \"amt\": 1,\r\n" +
+				"    \"@column\": \"id,cc\"\r\n" +
+				"  }\r\n" + 
 				"}";
 		JSONObject req = JSONObject.parseObject(json);
 		long fastJsonet = System.currentTimeMillis();
@@ -24,6 +26,14 @@ public class App
 		long st2 = System.currentTimeMillis();
 		APIJSONProvider apijsonProvider = new APIJSONProvider(req);
 		apijsonProvider.setStatementType(StatementType.SELECT);
+//		apijsonProvider.getTableBlackList().add("Retail");
+//		apijsonProvider.getTableWhiteList().add("Retail");
+//		apijsonProvider.getTableWhiteList().add("StorE");
+//		apijsonProvider.getColumnBlackList().add("retail.id");
+		apijsonProvider.getColumnWhiteList().add("retail.*");
+//		apijsonProvider.getColumnWhiteList().add("retail.amt");
+//		apijsonProvider.getColumnBlackList().add("retail.amt");
+//		apijsonProvider.getColumnWhiteList().add("store.id");
 		SQLExplorer builder = new SQLExplorer(apijsonProvider);
 		System.out.println(builder.getSQL());
 		long et = System.currentTimeMillis();
@@ -32,5 +42,6 @@ public class App
 		System.out.println("APIJSONParser解析用时:" + (et - st2) + "ms");
 		System.out.println("合计用时:" + (et - st) + "ms");
 		//实际解析耗时21ms
+		 
     }
 }

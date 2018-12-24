@@ -12,6 +12,11 @@ public class APIJSONProvider extends AbstractProvider {
 	private final String ALIAS_SPLIT = ":";
 	private static final String AND = " AND ";
 	private static final String OR = " OR ";
+
+	private List<String> tableWhiteList = new ArrayList<String>();
+	private List<String> tableBlackList = new ArrayList<String>();
+	private List<String> columnWhiteList = new ArrayList<String>();
+	private List<String> columnBlackList = new ArrayList<String>();
 	
 	private JSONObject request;
 	private JSONObject join;
@@ -44,6 +49,10 @@ public class APIJSONProvider extends AbstractProvider {
 	/**
 	 * 解析请求中的表名
 	 * 表名必须符合：(\w+(:\w+)?)
+	 * 即：
+	 *    表名
+	 *    表名:表别名
+	 * 两种形式
 	 */
 	@Override
 	public List<String> getTables() {
@@ -65,7 +74,7 @@ public class APIJSONProvider extends AbstractProvider {
 			}else {
 				tableRealName = tableAliasName = tableName;
 			}
-				
+			validateTable(tableRealName);
 			list.add(tableRealName + " " + tableAliasName);
 		}
 		return list;
@@ -87,7 +96,7 @@ public class APIJSONProvider extends AbstractProvider {
 	 * 支持函数的正则：((\w+\(\w+\):\w+|\w+)(:\w+)?)+(\s?,\s?((\w+\(\w+\):\w+|\w+)(:\w+)?)+)*
 	 * 例：a,b,c或a:a1,b:b1,c
 	 * 约束：必须要有表名
-	 * 目前不支持函数
+	 * 目前支持函数
 	 */
 	@Override
 	public List<String> getSelect() {
@@ -95,6 +104,7 @@ public class APIJSONProvider extends AbstractProvider {
 		List<String> list = new ArrayList<>();
 		if(getStatementType() == StatementType.SELECT) {
 			Set<String> tableNames = request.keySet();
+			String tableRealName;
 			String tableAliasName;
 			for(String tableName : tableNames) {
 				//格式检查
@@ -104,16 +114,18 @@ public class APIJSONProvider extends AbstractProvider {
 				}
 				//是否有自定义别名
 				if(tableName.contains(ALIAS_SPLIT)) {
+					tableRealName = tableName.split(ALIAS_SPLIT)[0];
 					//填写了表别名
 					tableAliasName = tableName.split(ALIAS_SPLIT)[1];
 				}else {
-					tableAliasName = tableName;
+					tableRealName = tableAliasName = tableName;
 				}
 				// 获取请求@column的值
 				JSONObject propertis = request.getJSONObject(tableName);
 				String columnsValue = propertis.getString("@column");
 				
 				if(columnsValue == null) {
+					validateColumn(tableRealName,"*");
 					//没有填写@column字段，默认为全部
 					list.add(tableAliasName + ".*");
 				}else {
@@ -138,15 +150,18 @@ public class APIJSONProvider extends AbstractProvider {
 								//此处省略函数合法性检查的代码...
 								String columnRealName =  functionStrs[1];
 								String columnAliasName = columnName.split(ALIAS_SPLIT)[1];
+								validateColumn(tableRealName,columnRealName);
 								list.add(funcitonName + "(" + tableAliasName + "." + columnRealName + ")" + " as " + columnAliasName);
 							}else {
 								//没函数的字段
 								String columnRealName = functionOrColumn ;
 								String columnAliasName = columnName.split(ALIAS_SPLIT)[1];
+								validateColumn(tableRealName,columnRealName);
 								list.add(tableAliasName + "." + columnRealName + " as " + columnAliasName);
 							}
 						}else {
 							//使用tableAliasName.columnName类型
+							validateColumn(tableRealName,columnName);
 							list.add(tableAliasName + "." + columnName);
 						}
 					}
@@ -359,7 +374,7 @@ public class APIJSONProvider extends AbstractProvider {
 	}
 	/**
 	 * 内连接
-	 * 请求：table1.column1 = table2.column2
+	 * 请求："@innerJoin" : ["table1.column1 = table2.column2","table1.column1 = table2.column2"]
 	 * 编译之后：INNER JOIN table1 ON table1.column1=table2.column2
 	 */
 	@Override
@@ -368,22 +383,26 @@ public class APIJSONProvider extends AbstractProvider {
 		List<String> list = new ArrayList<>();
 		if(getStatementType() == StatementType.SELECT) {
 			if(join != null && join.get("@innerJoin")!=null) {
-				Object obj = join.get("@innerJoin");
-				if(obj instanceof String) {
-					String joinStr = (String)obj;
-					if(joinStr.matches("\\w+\\.\\w+\\s?=\\s?\\w+\\.\\w+")) {
-						//table1.column1 = table2.column2
-						String[] tcs = joinStr.replaceAll("\\s", "").split("=");
-						String leftTable = tcs[0].split("\\.")[0];
-						String rightTable = tcs[1].split("\\.")[0];
-						list.add(leftTable + " ON " + joinStr);
+				JSONArray stms = join.getJSONArray("@innerJoin");
+				for(int i = 0; i < stms.size(); i++) {
+					Object obj = stms.get(i);
+					if(obj instanceof String) {
+						String joinStr = (String)obj;
+						if(joinStr.matches("\\w+\\.\\w+\\s?=\\s?\\w+\\.\\w+")) {
+							//table1.column1 = table2.column2
+							String[] tcs = joinStr.replaceAll("\\s", "").split("=");
+							String leftTable = tcs[0].split("\\.")[0];
+							String rightTable = tcs[1].split("\\.")[0];
+							validateTable(leftTable);
+							list.add(leftTable + " ON " + joinStr);
+						}else {
+							error("@innerJoin的格式必须是：table1.column1 = table2.column2,相当于INNER JOIN table1 ON table1.column1=table2.column2");
+							return null;
+						}
 					}else {
-						error("@innerJoin的格式必须是：table1.column1 = table2.column2,相当于INNER JOIN table1 ON table1.column1=table2.column2");
+						error("@innerJoin的类型必须是String类型，填写的值如：table1.column1 = table2.column2,相当于INNER JOIN table1 ON table1.column1=table2.column2。注意：表有别名的应该写表别名");
 						return null;
 					}
-				}else {
-					error("@innerJoin的类型必须是String类型，填写的值如：table1.column1 = table2.column2,相当于INNER JOIN table1 ON table1.column1=table2.column2。注意：表有别名的应该写表别名");
-					return null;
 				}
 			}
 		}
@@ -399,22 +418,26 @@ public class APIJSONProvider extends AbstractProvider {
 		List<String> list = new ArrayList<>();
 		if(getStatementType() == StatementType.SELECT) {
 			if(join != null && join.get("@leftOuterJoin")!=null) {
-				Object obj = join.get("@leftOuterJoin");
-				if(obj instanceof String) {
-					String joinStr = (String)obj;
-					if(joinStr.matches("\\w+\\.\\w+\\s?=\\s?\\w+\\.\\w+")) {
-						//table1.column1 = table2.column2
-						String[] tcs = joinStr.replaceAll("\\s", "").split("=");
-						String leftTable = tcs[0].split("\\.")[0];
-						String rightTable = tcs[1].split("\\.")[0];
-						list.add(leftTable + " ON " + joinStr);
+				JSONArray stms = join.getJSONArray("@leftOuterJoin");
+				for(int i = 0; i < stms.size(); i++) {
+					Object obj = stms.get(i);
+					if(obj instanceof String) {
+						String joinStr = (String)obj;
+						if(joinStr.matches("\\w+\\.\\w+\\s?=\\s?\\w+\\.\\w+")) {
+							//table1.column1 = table2.column2
+							String[] tcs = joinStr.replaceAll("\\s", "").split("=");
+							String leftTable = tcs[0].split("\\.")[0];
+							String rightTable = tcs[1].split("\\.")[0];
+							validateTable(leftTable);
+							list.add(leftTable + " ON " + joinStr);
+						}else {
+							error("@leftOuterJoin的格式必须是：table1.column1 = table2.column2,相当于LEFT OUTER JOIN table1 ON table1.column1=table2.column2");
+							return null;
+						}
 					}else {
-						error("@leftOuterJoin的格式必须是：table1.column1 = table2.column2,相当于LEFT OUTER JOIN table1 ON table1.column1=table2.column2");
+						error("@leftOuterJoin的类型必须是String类型，填写的值如：table1.column1 = table2.column2,相当于LEFT OUTER JOIN table1 ON table1.column1=table2.column2。注意：表有别名的应该写表别名");
 						return null;
 					}
-				}else {
-					error("@leftOuterJoin的类型必须是String类型，填写的值如：table1.column1 = table2.column2,相当于LEFT OUTER JOIN table1 ON table1.column1=table2.column2。注意：表有别名的应该写表别名");
-					return null;
 				}
 			}
 		}
@@ -429,22 +452,26 @@ public class APIJSONProvider extends AbstractProvider {
 		List<String> list = new ArrayList<>();
 		if(getStatementType() == StatementType.SELECT) {
 			if(join != null && join.get("@rightOuterJoin")!=null) {
-				Object obj = join.get("@rightOuterJoin");
-				if(obj instanceof String) {
-					String joinStr = (String)obj;
-					if(joinStr.matches("\\w+\\.\\w+\\s?=\\s?\\w+\\.\\w+")) {
-						//table1.column1 = table2.column2
-						String[] tcs = joinStr.replaceAll("\\s", "").split("=");
-						String leftTable = tcs[0].split("\\.")[0];
-						String rightTable = tcs[1].split("\\.")[0];
-						list.add(leftTable + " ON " + joinStr);
+				JSONArray stms = join.getJSONArray("@rightOuterJoin");
+				for(int i = 0; i < stms.size(); i++) {
+					Object obj = stms.get(i);
+					if(obj instanceof String) {
+						String joinStr = (String)obj;
+						if(joinStr.matches("\\w+\\.\\w+\\s?=\\s?\\w+\\.\\w+")) {
+							//table1.column1 = table2.column2
+							String[] tcs = joinStr.replaceAll("\\s", "").split("=");
+							String leftTable = tcs[0].split("\\.")[0];
+							String rightTable = tcs[1].split("\\.")[0];
+							validateTable(leftTable);
+							list.add(leftTable + " ON " + joinStr);
+						}else {
+							error("@rightOuterJoin的格式必须是：table1.column1 = table2.column2,相当于RIGHT OUTER JOIN table1 ON table1.column1=table2.column2");
+							return null;
+						}
 					}else {
-						error("@rightOuterJoin的格式必须是：table1.column1 = table2.column2,相当于RIGHT OUTER JOIN table1 ON table1.column1=table2.column2");
+						error("@rightOuterJoin的类型必须是String类型，填写的值如：table1.column1 = table2.column2,相当于RIGHT OUTER JOIN table1 ON table1.column1=table2.column2。注意：表有别名的应该写表别名");
 						return null;
 					}
-				}else {
-					error("@rightOuterJoin的类型必须是String类型，填写的值如：table1.column1 = table2.column2,相当于RIGHT OUTER JOIN table1 ON table1.column1=table2.column2。注意：表有别名的应该写表别名");
-					return null;
 				}
 			}
 		}
@@ -459,22 +486,26 @@ public class APIJSONProvider extends AbstractProvider {
 		List<String> list = new ArrayList<>();
 		if(getStatementType() == StatementType.SELECT) {
 			if(join != null && join.get("@join")!=null) {
-				Object obj = join.get("@join");
-				if(obj instanceof String) {
-					String joinStr = (String)obj;
-					if(joinStr.matches("\\w+\\.\\w+\\s?=\\s?\\w+\\.\\w+")) {
-						//table1.column1 = table2.column2
-						String[] tcs = joinStr.replaceAll("\\s", "").split("=");
-						String leftTable = tcs[0].split("\\.")[0];
-						String rightTable = tcs[1].split("\\.")[0];
-						list.add(leftTable + " ON " + joinStr);
+				JSONArray stms = join.getJSONArray("@join");
+				for(int i = 0; i < stms.size(); i++) {
+					Object obj = stms.get(i);
+					if(obj instanceof String) {
+						String joinStr = (String)obj;
+						if(joinStr.matches("\\w+\\.\\w+\\s?=\\s?\\w+\\.\\w+")) {
+							//table1.column1 = table2.column2
+							String[] tcs = joinStr.replaceAll("\\s", "").split("=");
+							String leftTable = tcs[0].split("\\.")[0];
+							String rightTable = tcs[1].split("\\.")[0];
+							validateTable(leftTable);
+							list.add(leftTable + " ON " + joinStr);
+						}else {
+							error("@join的格式必须是：table1.column1 = table2.column2,相当于JOIN table1 ON table1.column1=table2.column2");
+							return null;
+						}
 					}else {
-						error("@join的格式必须是：table1.column1 = table2.column2,相当于JOIN table1 ON table1.column1=table2.column2");
+						error("@join的类型必须是String类型，填写的值如：table1.column1 = table2.column2,相当于JOIN table1 ON table1.column1=table2.column2。注意：表有别名的应该写表别名");
 						return null;
 					}
-				}else {
-					error("@join的类型必须是String类型，填写的值如：table1.column1 = table2.column2,相当于JOIN table1 ON table1.column1=table2.column2。注意：表有别名的应该写表别名");
-					return null;
 				}
 			}
 		}
@@ -489,22 +520,27 @@ public class APIJSONProvider extends AbstractProvider {
 		List<String> list = new ArrayList<>();
 		if(getStatementType() == StatementType.SELECT) {
 			if(join != null && join.get("@outerJoin")!=null) {
-				Object obj = join.get("@outerJoin");
-				if(obj instanceof String) {
-					String joinStr = (String)obj;
-					if(joinStr.matches("\\w+\\.\\w+\\s?=\\s?\\w+\\.\\w+")) {
-						//table1.column1 = table2.column2
-						String[] tcs = joinStr.replaceAll("\\s", "").split("=");
-						String leftTable = tcs[0].split("\\.")[0];
-						String rightTable = tcs[1].split("\\.")[0];
-						list.add(leftTable + " ON " + joinStr);
+				JSONArray stms = join.getJSONArray("@join");
+				for(int i = 0; i < stms.size(); i++) {
+					
+					Object obj = stms.get(i);
+					if(obj instanceof String) {
+						String joinStr = (String)obj;
+						if(joinStr.matches("\\w+\\.\\w+\\s?=\\s?\\w+\\.\\w+")) {
+							//table1.column1 = table2.column2
+							String[] tcs = joinStr.replaceAll("\\s", "").split("=");
+							String leftTable = tcs[0].split("\\.")[0];
+							String rightTable = tcs[1].split("\\.")[0];
+							validateTable(leftTable);
+							list.add(leftTable + " ON " + joinStr);
+						}else {
+							error("@outerJoin的格式必须是：table1.column1 = table2.column2,相当于OUTER JOIN table1 ON table1.column1=table2.column2");
+							return null;
+						}
 					}else {
-						error("@outerJoin的格式必须是：table1.column1 = table2.column2,相当于OUTER JOIN table1 ON table1.column1=table2.column2");
+						error("@outerJoin的类型必须是String类型，填写的值如：table1.column1 = table2.column2,相当于OUTER JOIN table1 ON table1.column1=table2.column2。注意：表有别名的应该写表别名");
 						return null;
 					}
-				}else {
-					error("@outerJoin的类型必须是String类型，填写的值如：table1.column1 = table2.column2,相当于OUTER JOIN table1 ON table1.column1=table2.column2。注意：表有别名的应该写表别名");
-					return null;
 				}
 			}
 		}
@@ -630,6 +666,7 @@ public class APIJSONProvider extends AbstractProvider {
 						continue;
 					if(condition.matches("\\w+")) {	
 						//纯字段名
+						validateColumn(tableName,condition);
 						list.add(condition);
 					}else {
 						error("新增时，"+condition+"必须是字段名");
@@ -724,8 +761,10 @@ public class APIJSONProvider extends AbstractProvider {
 						   propertis.get(condition) instanceof Float   ||
 						   propertis.get(condition) instanceof Double  ||
 						   propertis.get(condition) instanceof BigDecimal) {
+							validateColumn(tableName,columnName);
 							list.add(tableName + "." + columnName + "=" + propertis.get(condition).toString() );
 						}else if(propertis.get(condition) instanceof String) {
+							validateColumn(tableName, columnName);
 							list.add(tableName + "." + columnName + "=" + "'" + ((String) propertis.get(condition)).replaceAll("'", "''") + "'");
 						}
 					}
@@ -734,5 +773,103 @@ public class APIJSONProvider extends AbstractProvider {
 			}
 		}
 		return list;
+	}
+	
+	/*
+	 * ==================================
+	 *              权限逻辑
+	 * ==================================
+	 * 
+	 * 不管权限认证系统有多复杂，最后到生成SQL这步
+	 * 都是进行黑白名单的检查
+	 * 不论黑白，只要名单为空，表示所有数据都可以
+	 * 表名单：
+	 *   格式：表名
+	 *   大小写不敏感
+	 * 字段名单：
+	 *   格式：表名.字段
+	 *   大小写不敏感
+	 * 所有字段：
+	 *   格式： 表名.*
+	 * 
+	 * 如果想要新增或者修改的更复杂的逻辑，
+	 * 请在外层处理完成之后以制定格式提交该SQL的黑白名单即可
+	 *
+	 */	
+	/**
+	 * 表的黑白名单检查
+	 * @param tableName
+	 */
+	private void validateTable(String tableName) {
+		String tableUCN = tableName.toUpperCase();
+		if(tableBlackList != null && !tableBlackList.isEmpty()) {
+			for(String tn : tableBlackList) {
+				if(tableUCN.equals(tn.toUpperCase())) {
+					error("请求的表:" + tableName + "在黑名单中");
+					return;
+				}
+			}
+		}
+		
+		if(tableWhiteList != null && !tableWhiteList.isEmpty()) {
+			for(String tn : tableWhiteList) {
+				if(tableUCN.equals(tn.toUpperCase())) {
+					return;
+				}
+			}
+			error("请求的表:" + tableName + "不在白名单中");
+		}
+	}
+	/**
+	 * 字段黑白名单检查
+	 * 要求： "表.列"
+	 * @param columnName
+	 */
+	private void validateColumn(String tableName, String columnName) {
+		String tableUCN = tableName.toUpperCase();
+		String columnUCN = columnName.toUpperCase();
+		String tcUCN = tableUCN + "." + columnUCN;
+		if(columnBlackList != null && !columnBlackList.isEmpty()) {
+			for(String tc : columnBlackList) {
+				if(tcUCN.equals(tc.toUpperCase())) {
+					error("请求的字段:" + tcUCN + "在黑名单中");
+					return;
+				}
+			}
+		}
+		
+		if(columnWhiteList != null && !columnWhiteList.isEmpty()) {
+			for(String tc : columnWhiteList) {
+				if(tc.endsWith(".*") || tcUCN.equals(tc.toUpperCase())) {
+					return;
+				}
+			}
+			error("请求的字段:" + tcUCN + "不在白名单中");
+		}
+	}
+
+	public List<String> getTableWhiteList() {
+		return tableWhiteList;
+	}
+	public void setTableWhiteList(List<String> tableWhiteList) {
+		this.tableWhiteList = tableWhiteList;
+	}
+	public List<String> getTableBlackList() {
+		return tableBlackList;
+	}
+	public void setTableBlackList(List<String> tableBlackList) {
+		this.tableBlackList = tableBlackList;
+	}
+	public List<String> getColumnWhiteList() {
+		return columnWhiteList;
+	}
+	public void setColumnWhiteList(List<String> columnWhiteList) {
+		this.columnWhiteList = columnWhiteList;
+	}
+	public List<String> getColumnBlackList() {
+		return columnBlackList;
+	}
+	public void setColumnBlackList(List<String> columnBlackList) {
+		this.columnBlackList = columnBlackList;
 	}
 }
