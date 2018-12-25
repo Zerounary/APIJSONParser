@@ -14,11 +14,11 @@ public class App
     {
     	long st = System.currentTimeMillis();
 		String json = "{\r\n" + 
-				"  \"Retail\":{\r\n" + 
-				"    \"id\": 1,\r\n" + 
-				"    \"amt\": 1,\r\n" +
-				"    \"@column\": \"id,cc\"\r\n" +
-				"  }\r\n" + 
+				"    \"Product:p\":{\r\n" + 
+				"        \"@column\":\"name,max(price):max_price\",\r\n" + 
+				"        \"name~\": \"双11\",\r\n" + 
+				"        \"@group\": \"name\"\r\n" + 
+				"    }\r\n" + 
 				"}";
 		JSONObject req = JSONObject.parseObject(json);
 		long fastJsonet = System.currentTimeMillis();
@@ -30,7 +30,7 @@ public class App
 //		apijsonProvider.getTableWhiteList().add("Retail");
 //		apijsonProvider.getTableWhiteList().add("StorE");
 //		apijsonProvider.getColumnBlackList().add("retail.id");
-		apijsonProvider.getColumnWhiteList().add("retail.*");
+//		apijsonProvider.getColumnWhiteList().add("retail.*");
 //		apijsonProvider.getColumnWhiteList().add("retail.amt");
 //		apijsonProvider.getColumnBlackList().add("retail.amt");
 //		apijsonProvider.getColumnWhiteList().add("store.id");

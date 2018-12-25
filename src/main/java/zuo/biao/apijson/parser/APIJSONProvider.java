@@ -180,7 +180,7 @@ public class APIJSONProvider extends AbstractProvider {
 	 *   多值："id{}" : [1,2,3] 即 id IN (1,2,3)
 	 *   多值："id!{}" : [1,2,3] 即 id NOT IN (1,2,3)
 	 *   模糊："content~":"keyword" 即字段content包含字符串keyword
-	 *   模糊："content~":"%keyword" 同样是模糊查询，%放出来自己操控
+	 *   模糊："content$":"%keyword" 同样是模糊查询，%放出来自己操控
 	 *   正则："content?":"^[0-9]+$" 后面填写正则即可
 	 *   外键："id@":"/外键表/外键字段"
 	 */
@@ -284,7 +284,7 @@ public class APIJSONProvider extends AbstractProvider {
 									for(int i = 0; i < array.size(); i++) {
 										Object obj = array.get(i);
 										if(i != 0) {
-											limit += ",";
+											limit += ", ";
 										}
 										if( obj instanceof Integer || 
 											obj instanceof Float   ||
@@ -302,7 +302,7 @@ public class APIJSONProvider extends AbstractProvider {
 									for(int i = 0; i < array.size(); i++) {
 										Object obj = array.get(i);
 										if(i != 0) {
-											limit += " , ";
+											limit += ", ";
 										}
 										if( obj instanceof Integer || 
 											obj instanceof Float   ||
@@ -327,11 +327,11 @@ public class APIJSONProvider extends AbstractProvider {
 							error(condition +"的值必须要是字符串");
 							return null;
 						}
-					}else if(condition.matches("\\w+$")) {
+					}else if(condition.matches("\\w+\\$")) {
 						//字符串查询，LIKE
 						if(propertis.get(condition) instanceof String) {
 							String exp = (String)propertis.get(condition);
-							String columnName = condition.replaceAll("$", "");
+							String columnName = condition.replaceAll("\\$", "");
 							list.add(tableAliasName + "." + columnName + " LIKE '" + exp.replaceAll("'", "''") + "'" );
 						}else {
 							error(condition +"的值必须要是字符串");
