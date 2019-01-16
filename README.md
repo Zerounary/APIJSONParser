@@ -314,7 +314,7 @@ WHERE ( regexp_like(p.code,'^[0-9]+$'))
 
 结果：
 
-```json
+```sql
 SELECT p.id, p.code, p.name, p.price
 FROM Product p
 WHERE (p.name LIKE '%双11%')
@@ -350,21 +350,74 @@ GROUP BY p.name
 
 目前允许的函数没有进行控制，所有的单一参数的函数都可以使用。
 
+单表查询的内容基本介绍完了，接下来是多表查询。
+
+现在有两张表，零售表`m_retail`，零售的店铺`m_retail.c_store_id`外键关联到`c_store`表。
+
+第一种是使用`id@`
+
+```json
+{
+  "m_retail:r":{
+      "@column":"id,docno",
+      "id": 18
+    },
+  "c_store:s":{
+    "id@":"/r/c_store_id",
+    "@column":"code,name"
+  }
+}
+```
+
+结果：
+
+```sql
+SELECT r.id, r.docno, s.code as "s.code", s.name as "s.name"
+FROM m_retail r, c_store s
+WHERE (r.id = 18 AND r.c_store_id = s.id)
+```
+
+如果不使用`id@`
+
+```json
+{
+    "[]": {
+        "c_store": {
+            "@column": "code,name",
+            "code": "C86L"
+        },
+        "m_retail:r": {
+            "@column": "id,docno"
+        }
+    },
+    "join": {
+        "@innerJoin": [
+            "c_store.id=r.c_store_id"
+        ]
+    }
+}
+```
+
+结果:
+
+```sql
+SELECT r.id, r.docno, c_store.code, c_store.name
+FROM m_retail r
+INNER JOIN c_store ON c_store.id=r.c_store_id
+WHERE (c_store.code = 'C86L')
+```
 
 
 
+其他几种join的使用方法和这里演示的innerJoin是一样的。 
 
-单表查询的内容基本介绍完了。
+现在支持的join有：
 
-接下来是多表查询，后续文档内容敬请期待。
-
-
-
-
-
-
-
-
+@innerJoin
+@leftOuterJoin
+@rightOuterJoin
+@join
+@outerJoin 
 
 
 

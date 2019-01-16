@@ -12,6 +12,8 @@ public class APIJSONProvider extends AbstractProvider {
 	private final String ALIAS_SPLIT = ":";
 	private static final String AND = " AND ";
 	private static final String OR = " OR ";
+	private final String q = "\"";
+	private boolean isWrap = false;
 
 	private List<String> tableWhiteList = new ArrayList<String>();
 	private List<String> tableBlackList = new ArrayList<String>();
@@ -61,7 +63,7 @@ public class APIJSONProvider extends AbstractProvider {
 		Set<String> tableNames = request.keySet();
 		String tableAliasName;
 		String tableRealName;
-		for(String tableName : tableNames) {
+		out:for(String tableName : tableNames) {
 			if(!tableName.matches("(\\w+(:\\w+)?)")) {
 				error("表" + tableName + "格式不符合" );
 				return null;
@@ -73,6 +75,19 @@ public class APIJSONProvider extends AbstractProvider {
 				tableAliasName = splitArray[1];
 			}else {
 				tableRealName = tableAliasName = tableName;
+			}
+			if(join != null) {
+				String[] checkJoin = {"@innerJoin","@leftOuterJoin","@rightOuterJoin","@join","@outerJoin"};
+				for(String joinKey : checkJoin) {
+					JSONArray array = join.getJSONArray(joinKey);
+					if(array != null && array.size() != 0) {
+						for(Object obj : array) {
+							if(obj instanceof String && (((String)obj).startsWith(tableRealName) || ((String)obj).startsWith(tableAliasName))) {
+								continue out;
+							}
+						}
+					}
+				}
 			}
 			validateTable(tableRealName);
 			list.add(tableRealName + " " + tableAliasName);
@@ -151,18 +166,27 @@ public class APIJSONProvider extends AbstractProvider {
 								String columnRealName =  functionStrs[1];
 								String columnAliasName = columnName.split(ALIAS_SPLIT)[1];
 								validateColumn(tableRealName,columnRealName);
+								if(propertis.getString("id@") != null)
+									columnAliasName = wrapColumn(tableAliasName, columnAliasName);
 								list.add(funcitonName + "(" + tableAliasName + "." + columnRealName + ")" + " as " + columnAliasName);
 							}else {
 								//没函数的字段
 								String columnRealName = functionOrColumn ;
 								String columnAliasName = columnName.split(ALIAS_SPLIT)[1];
 								validateColumn(tableRealName,columnRealName);
+								if(propertis.getString("id@") != null)
+									columnAliasName = wrapColumn(tableAliasName, columnAliasName);
 								list.add(tableAliasName + "." + columnRealName + " as " + columnAliasName);
 							}
 						}else {
 							//使用tableAliasName.columnName类型
 							validateColumn(tableRealName,columnName);
-							list.add(tableAliasName + "." + columnName);
+							if(propertis.getString("id@") != null) {
+								String columnAliasName = wrapColumn(tableAliasName, columnName);
+								list.add(tableAliasName + "." + columnName + " as " + columnAliasName);
+							}else {								
+								list.add(tableAliasName + "." + columnName);
+							}
 						}
 					}
 				}
@@ -170,6 +194,9 @@ public class APIJSONProvider extends AbstractProvider {
 			}
 		}
 		return list;
+	}
+	private String wrapColumn(String tableAliasName, String columnAliasName) {
+		return isWrap? q + tableAliasName + "." + columnAliasName + q : q +  columnAliasName + q;
 	}
 	/**
 	 * 解析请求中的过滤条件
@@ -520,7 +547,7 @@ public class APIJSONProvider extends AbstractProvider {
 		List<String> list = new ArrayList<>();
 		if(getStatementType() == StatementType.SELECT) {
 			if(join != null && join.get("@outerJoin")!=null) {
-				JSONArray stms = join.getJSONArray("@join");
+				JSONArray stms = join.getJSONArray("@outerJoin");
 				for(int i = 0; i < stms.size(); i++) {
 					
 					Object obj = stms.get(i);
@@ -872,4 +899,12 @@ public class APIJSONProvider extends AbstractProvider {
 	public void setColumnBlackList(List<String> columnBlackList) {
 		this.columnBlackList = columnBlackList;
 	}
+	public boolean isWrap() {
+		return isWrap;
+	}
+	public void setWrap(boolean isWrap) {
+		this.isWrap = isWrap;
+	}
+	
+	
 }

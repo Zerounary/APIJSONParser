@@ -14,12 +14,22 @@ public class App
     {
     	long st = System.currentTimeMillis();
 		String json = "{\r\n" + 
-				"    \"Product:p\":{\r\n" + 
-				"        \"@column\":\"name,max(price):max_price\",\r\n" + 
-				"        \"name~\": \"双11\",\r\n" + 
-				"        \"@group\": \"name\"\r\n" + 
+				"    \"[]\": {\r\n" + 
+				"        \"c_store\": {\r\n" + 
+				"            \"@column\": \"code,name\",\r\n" + 
+				"            \"code\": \"C86L\"\r\n" + 
+				"        },\r\n" + 
+				"        \"m_retail:r\": {\r\n" + 
+				"            \"@column\": \"id,docno\"\r\n" + 
+				"        }\r\n" + 
+				"    },\r\n" + 
+				"    \"join\": {\r\n" + 
+				"        \"@innerJoin\": [\r\n" + 
+				"            \"c_store.id=r.c_store_id\"\r\n" + 
+				"        ]\r\n" + 
 				"    }\r\n" + 
 				"}";
+		System.out.println(json);
 		JSONObject req = JSONObject.parseObject(json);
 		long fastJsonet = System.currentTimeMillis();
 		//JSON解析太耗时了174ms
