@@ -446,7 +446,6 @@ WHERE (c_store.code = 'C86L')
 
 ### 查询
 
-**请求地址：**`http://localhost:8080/jtyd-admin/api/wxapp/apijson_query`
 
 查询`A001`的名称
 
@@ -465,7 +464,6 @@ WHERE (c_store.code = 'C86L')
 
 ### 新增
 
-**请求地址：**`http://localhost:8080/jtyd-admin/api/wxapp/apijson_insert`
 
 新增一行如ID=1的数据
 
@@ -486,7 +484,6 @@ ID是自动增长的，所以不需要再给ID赋值。
 
 ### 修改
 
-**请求地址：**`http://localhost:8080/jtyd-admin/api/wxapp/apijson_update`
 
 修改代码`B001`为`A002`
 
@@ -507,7 +504,6 @@ ID是自动增长的，所以不需要再给ID赋值。
 
 ### 删除
 
-**请求地址：**`http://localhost:8080/jtyd-admin/api/wxapp/apijson_delete`
 
 删除`A002`
 
