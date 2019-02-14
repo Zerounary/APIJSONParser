@@ -428,24 +428,35 @@ WHERE (c_store.code = 'C86L')
 
 ## 速查
 
+> 速查中的示例，都是最简单的实例，更新，删除的功能中的过滤条件的使用和查询相同，具体使用参考上述说明
+
+
+
+一个叫`test_apijson`的表
+
+
+
+| ID   | CODE | NAME   |
+| ---- | ---- | ------ |
+| 1    | A001 | 浦东区 |
+| 2    | B001 | 徐汇区 |
+| 3    | C001 | 普陀区 |
+
+
+
 ### 查询
 
-#### 别名
+**请求地址：**`http://localhost:8080/jtyd-admin/api/wxapp/apijson_query`
 
-表的别名
+查询`A001`的名称
 
-```json
-{
-    "Table:t":{}
-}
-```
 
-字段的别名
 
 ```json
 {
-    "Table:t":{
-        "@column":"columnName:columnAliasName,.."
+    "test_apijson":{
+        "@column":"name",
+        "code":"A001"
     }
 }
 ```
@@ -454,6 +465,98 @@ WHERE (c_store.code = 'C86L')
 
 ### 新增
 
+**请求地址：**`http://localhost:8080/jtyd-admin/api/wxapp/apijson_insert`
+
+新增一行如ID=1的数据
+
+
+
+```json
+{
+    "test_apijson":{
+        "code":"A001",
+        "name":"浦东区"
+    }
+}
+```
+
+
+
+ID是自动增长的，所以不需要再给ID赋值。
+
 ### 修改
 
+**请求地址：**`http://localhost:8080/jtyd-admin/api/wxapp/apijson_update`
+
+修改代码`B001`为`A002`
+
+
+
+```json
+{
+    "test_apijson":{
+        "@code":"A002",
+        "code": "B001"
+    }
+}
+```
+
+
+
+
+
 ### 删除
+
+**请求地址：**`http://localhost:8080/jtyd-admin/api/wxapp/apijson_delete`
+
+删除`A002`
+
+
+
+```json
+{
+    "test_apijson":{
+        "code": "A002"
+    }
+}
+```
+
+
+
+## 权限
+
+### 表权限
+
+表白名单：`APIJSONProvider.getTableWhiteList()`
+
+表黑名单：`APIJSONProvider.getTableBlackList()`
+
+表的黑白名单的使用
+
+
+
+```java
+apijsonProvider.getTableBlackList().add("Retail");
+```
+
+`Retail`是表名
+
+
+
+### 字段权限
+
+字段白名单：`APIJSONProvider.getColumnWhiteList()`
+
+字段黑名单：`APIJSONProvider.getColumnBlackList()`
+
+字段的黑白名单的使用
+
+
+
+```java
+apijsonProvider.getColumnWhiteList().add("retail.*");
+apijsonProvider.getColumnWhiteList().add("retail.amt");
+```
+
+格式：`表名.字段名`，字段名支持通配符`*`
+

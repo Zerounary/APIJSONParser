@@ -90,7 +90,11 @@ public class APIJSONProvider extends AbstractProvider {
 				}
 			}
 			validateTable(tableRealName);
-			list.add(tableRealName + " " + tableAliasName);
+			if(getStatementType() == StatementType.SELECT) {
+				list.add(tableRealName + " " + tableAliasName);
+			}else {
+				list.add(tableRealName);
+			}
 		}
 		return list;
 	}
