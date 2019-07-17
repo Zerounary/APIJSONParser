@@ -195,7 +195,7 @@ WHERE (p.price > 300 OR p.price < 1200)
 ```sql
 SELECT p.id, p.code, p.name, p.price
 FROM Product p
-WHERE (p.brand_id IN [1, 4, 5])
+WHERE (p.brand_id IN (1, 4, 5))
 ```
 
 
@@ -218,7 +218,7 @@ WHERE (p.brand_id IN [1, 4, 5])
 ```sql
 SELECT p.id, p.code, p.name, p.price
 FROM Product p
-WHERE (p.brand_id NOT IN [1, 4, 5])
+WHERE (p.brand_id NOT IN (1, 4, 5))
 ```
 
 此功能同样支持文本字段
