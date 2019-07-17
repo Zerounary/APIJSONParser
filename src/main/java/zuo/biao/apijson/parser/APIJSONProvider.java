@@ -326,7 +326,7 @@ public class APIJSONProvider extends AbstractProvider {
 											limit += "'" + ((String)obj).replaceAll("'", "''") + "'";
 										}
 									}
-									list.add(tableAliasName + "." + columnName + " NOT IN [" + limit + "]" );
+									list.add(tableAliasName + "." + columnName + " NOT IN (" + limit + ")" );
 								}
 							}else {
 								if(!array.isEmpty()) {
@@ -344,7 +344,7 @@ public class APIJSONProvider extends AbstractProvider {
 											limit += "'" + ((String)obj).replaceAll("'", "''") + "'";
 										}
 									}
-									list.add(tableAliasName + "." + columnName + " IN [" + limit + "]" );
+									list.add(tableAliasName + "." + columnName + " IN (" + limit + ")" );
 								}
 							}
 						}
